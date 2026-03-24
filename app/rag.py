@@ -18,8 +18,7 @@ qdrant.recreate_collection(
 def embed(text):
     return list(embedding_model.embed([text]))[0].tolist()
 def index_chunks(chunks):
-    points = []
-
+    points=[]
     for chunk in chunks:
         vector = embed(chunk["text"])
 
@@ -35,7 +34,6 @@ def index_chunks(chunks):
     qdrant.upsert(collection_name=COLLECTION_NAME, points=points)
 def explain(query, chunks):
     context = "\n\n".join([c["snippet"] for c in chunks])
-
     prompt = f"""
 You are a senior software engineer.
 Answer using the code context.

@@ -1,0 +1,255 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 40px 30px;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+header .subtitle {
+    font-size: 1.1em;
+    opacity: 0.95;
+    font-weight: 300;
+}
+
+main {
+    flex: 1;
+    padding: 40px 30px;
+}
+
+.section {
+    margin-bottom: 40px;
+}
+
+.section h2 {
+    color: #333;
+    font-size: 1.4em;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.input-field {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1em;
+    transition: border-color 0.3s;
+}
+
+.input-field:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-success {
+    background: #48bb78;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #38a169;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(72, 187, 120, 0.4);
+}
+
+.btn-success:active {
+    transform: translateY(0);
+}
+
+.status-message {
+    min-height: 24px;
+    font-size: 0.95em;
+    margin-top: 10px;
+}
+
+.status-message.success {
+    color: #48bb78;
+    font-weight: 500;
+}
+
+.status-message.error {
+    color: #f56565;
+    font-weight: 500;
+}
+
+.status-message.info {
+    color: #4299e1;
+    font-weight: 500;
+}
+
+.status-message.loading {
+    color: #667eea;
+    font-weight: 500;
+}
+
+.results-container {
+    background: #f7fafc;
+    border-radius: 8px;
+    padding: 24px;
+    min-height: 150px;
+    border: 2px solid #e2e8f0;
+}
+
+.result-item {
+    background: white;
+    border-left: 4px solid #667eea;
+    padding: 16px;
+    margin-bottom: 16px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.result-item:last-child {
+    margin-bottom: 0;
+}
+
+.result-item.answer {
+    border-left-color: #48bb78;
+    background: #f0fff4;
+}
+
+.result-item h3 {
+    color: #667eea;
+    font-size: 1.1em;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.result-item.answer h3 {
+    color: #48bb78;
+}
+
+.result-item p {
+    color: #4a5568;
+    line-height: 1.6;
+    margin-bottom: 8px;
+}
+
+.result-item p:last-child {
+    margin-bottom: 0;
+}
+
+.result-item code {
+    background: #2d3748;
+    color: #68d391;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.placeholder-text {
+    color: #a0aec0;
+    text-align: center;
+    padding: 40px 20px;
+    font-style: italic;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e2e8f0;
+    border-top: 2px solid #667eea;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-left: 8px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+footer {
+    background: #f7fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 20px 30px;
+    text-align: center;
+    color: #718096;
+    font-size: 0.9em;
+}
+
+@media (max-width: 600px) {
+    header h1 {
+        font-size: 1.8em;
+    }
+
+    main {
+        padding: 20px 15px;
+    }
+
+    .input-group {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+    }
+
+    .section h2 {
+        font-size: 1.2em;
+    }
+}

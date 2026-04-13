@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codebase RAG Agent</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Codebase RAG Agent</h1>
+            <p class="subtitle">Semantic search over your codebase</p>
+        </header>
+
+        <main>
+            <!-- Ingest Section -->
+            <section class="section ingest-section">
+                <h2>Step 1: Load Repository</h2>
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="repoUrl" 
+                        placeholder="e.g., https://github.com/tiangolo/fastapi"
+                        class="input-field"
+                    >
+                    <button id="ingestBtn" class="btn btn-primary">Load Repo</button>
+                </div>
+                <div id="ingestStatus" class="status-message"></div>
+            </section>
+
+            <!-- Query Section -->
+            <section class="section query-section">
+                <h2>Step 2: Ask Questions</h2>
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="queryInput" 
+                        placeholder="Ask about your codebase..."
+                        class="input-field"
+                    >
+                    <button id="askBtn" class="btn btn-success">Search</button>
+                </div>
+                <div id="queryStatus" class="status-message"></div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="section results-section">
+                <h2>Results</h2>
+                <div id="results" class="results-container">
+                    <p class="placeholder-text">Results will appear here...</p>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>RAG Agent • Powered by FastAPI + Qdrant + Gemini</p>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

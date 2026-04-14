@@ -16,11 +16,36 @@ FINAL_CONTEXT_K = 8
 HYBRID_SCORE_THRESHOLD = 0.2
 GRAPH_SEED_K = 6
 
-gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+_gemini_client = None
+_qdrant_client = None
 
-qdrant = QdrantClient(host="localhost", port=6333)
+
+def _get_gemini_client() -> genai.Client:
+    global _gemini_client
+    if _gemini_client is not None:
+        return _gemini_client
+
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "GEMINI_API_KEY is not set. Set it in your environment (or .env) before calling /ask."
+        )
+
+    _gemini_client = genai.Client(api_key=api_key)
+    return _gemini_client
+
+
+def _get_qdrant_client() -> QdrantClient:
+    global _qdrant_client
+    if _qdrant_client is not None:
+        return _qdrant_client
+
+    # TODO: externalize host/port via config (Project.md: config-driven).
+    _qdrant_client = QdrantClient(host="localhost", port=6333)
+    return _qdrant_client
 
 def _ensure_collection_exists():
+    qdrant = _get_qdrant_client()
     existing_collections = [c.name for c in qdrant.get_collections().collections]
     if COLLECTION_NAME not in existing_collections:
         qdrant.create_collection(
@@ -28,8 +53,8 @@ def _ensure_collection_exists():
             vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
         )
 
-
-_ensure_collection_exists()
+ # Note: do not connect to Qdrant at import time.
+ # Collection checks happen inside index/search paths.
 
 
 def _to_float_vector(raw_embedding):
@@ -127,6 +152,7 @@ def _graph_proximity_scores(candidates):
 
 def embed(text):
     """Embed using Google Gemini 3072-dimensional"""
+    gemini_client = _get_gemini_client()
     response = gemini_client.models.embed_content(
         model="gemini-embedding-001",
         contents=[text],
@@ -138,6 +164,7 @@ def embed(text):
 def batch_embed(texts, batch_size=10):
     """Embed texts in batches using Google Gemini 3072-dimensional"""
     vectors = []
+    gemini_client = _get_gemini_client()
     for i in range(0, len(texts), batch_size):
         batch = texts[i:i+batch_size]
         response = gemini_client.models.embed_content(
@@ -159,6 +186,7 @@ def index_chunks(chunks):
         return
 
     _ensure_collection_exists()
+    qdrant = _get_qdrant_client()
     
     max_len = 800
     texts = [chunk["text"][:max_len] for chunk in chunks]
@@ -215,6 +243,7 @@ Question:
 {query}"""
     
     try:
+        gemini_client = _get_gemini_client()
         response = gemini_client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
@@ -227,6 +256,7 @@ def search(query):
     """Search using hybrid retrieval (semantic + BM25 + graph proximity)."""
     try:
         _ensure_collection_exists()
+        qdrant = _get_qdrant_client()
 
         vector = embed(query)
         results = qdrant.search(

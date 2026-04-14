@@ -33,6 +33,23 @@ def collection_name_for_repo(repo_url: str) -> str:
     digest = hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:12]
     return f"repo_{digest}"
 
+def point_id_for_chunk(chunk: dict) -> str:
+    """
+    Deterministic point ID for Qdrant upserts.
+
+    This makes re-ingesting the *same repo* idempotent: the same chunk key maps
+    to the same Qdrant point id, so upsert updates instead of duplicating.
+    """
+    repo_url = (chunk.get("repo_url") or "").strip().lower()
+    path = (chunk.get("path") or "").replace("\\", "/")
+    symbol_id = (chunk.get("symbol_id") or "").strip()
+    start_line = chunk.get("start_line")
+    end_line = chunk.get("end_line")
+
+    key = f"{repo_url}|{path}|{symbol_id}|{start_line}|{end_line}"
+    # Use UUIDv5 so Qdrant ids stay UUID-shaped while remaining deterministic.
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
+
 
 def _get_gemini_client() -> genai.Client:
     global _gemini_client
@@ -225,7 +242,7 @@ def index_chunks(chunks, *, collection_name: str | None = None):
         }
         points.append(
             PointStruct(
-                id=str(uuid.uuid4()),
+                id=point_id_for_chunk(chunk),
                 vector=vector,
                 payload=payload,
             )

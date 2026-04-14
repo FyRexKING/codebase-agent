@@ -1,5 +1,5 @@
-// Base API URL
-const API_URL = 'http://localhost:8000';
+// Base API URL (same origin as the UI)
+const API_URL = window.location.origin;
 
 // DOM Elements
 const repoUrl = document.getElementById('repoUrl');
@@ -121,7 +121,7 @@ function displayResults(query, results) {
         html += `
             <div class="result-item answer">
                 <h3>💡 AI Response</h3>
-                <p>${escapeHtml(results.explanation)}</p>
+                <pre style="white-space: pre-wrap; line-height: 1.45;">${escapeHtml(results.explanation)}</pre>
             </div>
         `;
     }
@@ -135,10 +135,12 @@ function displayResults(query, results) {
         results.sources.forEach((source, idx) => {
             html += `
                 <p><strong>Source ${idx + 1}:</strong></p>
-                <p>File: <code>${escapeHtml(source.path)}</code></p>
-                <p style="margin-top: 8px; font-size: 0.95em; color: #718096;">
-                    ${escapeHtml(source.snippet.substring(0, 200))}...
+                <p>
+                  <code>${escapeHtml(source.source_id || `S${idx + 1}`)}</code>
+                  File: <code>${escapeHtml(source.path)}</code>
+                  ${source.start_line ? ` (lines ${escapeHtml(String(source.start_line))}-${escapeHtml(String(source.end_line))})` : ''}
                 </p>
+                <pre style="margin-top: 8px; font-size: 0.95em; color: #718096; white-space: pre-wrap;">${escapeHtml((source.snippet || '').substring(0, 600))}</pre>
             `;
         });
         html += `</div>`;

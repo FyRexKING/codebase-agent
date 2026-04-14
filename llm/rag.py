@@ -23,6 +23,21 @@ FINAL_CONTEXT_K = 8
 HYBRID_SCORE_THRESHOLD = 0.2
 GRAPH_SEED_K = 6
 
+
+def _is_not_found_explanation(explanation: str) -> bool:
+    """
+    The answer model is instructed to reply exactly "Not found in codebase."
+    when it cannot answer from sources, but we also handle minor variants and
+    the local "no context" string for robustness.
+    """
+    t = (explanation or "").strip().lower()
+    return t in {
+        "not found in codebase.",
+        "not found in codebase",
+        "no relevant context found in codebase.",
+        "no relevant context found in codebase",
+    }
+
 def index_chunks(chunks, *, collection_name: str | None = None):
     """Index code chunks into Qdrant vector database"""
     if not chunks:
@@ -110,10 +125,27 @@ def search(query, *, collection_name: str | None = None):
         )
 
         explanation = explain(query, final_chunks)
+        if _is_not_found_explanation(explanation):
+            return {
+                "explanation": explanation,
+                "sources": [],
+                "retrieval": {
+                    "strategy": "hybrid_semantic_bm25_graph",
+                    "weights": {
+                        "semantic": SEMANTIC_WEIGHT,
+                        "bm25": BM25_WEIGHT,
+                        "graph": GRAPH_WEIGHT,
+                    },
+                    "candidate_count": len(candidates),
+                    "selected_count": 0,
+                    "threshold": HYBRID_SCORE_THRESHOLD,
+                },
+            }
         return {
             "explanation": explanation,
             "sources": [
                 {
+                    "source_id": f"S{idx + 1}",
                     "path": c["path"],
                     "repo_name": c["repo_name"],
                     "module": c["module"],
@@ -127,7 +159,7 @@ def search(query, *, collection_name: str | None = None):
                     "graph_score": round(c["graph_score"], 4),
                     "hybrid_score": round(c["hybrid_score"], 4),
                 }
-                for c in final_chunks
+                for idx, c in enumerate(final_chunks)
             ],
             "retrieval": {
                 "strategy": "hybrid_semantic_bm25_graph",

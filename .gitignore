@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+
+# Local env/config
+.env
+.env.*
+!.env.example
+
+# Repo ingestion workspace
+data/repo/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+

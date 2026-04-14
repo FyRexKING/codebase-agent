@@ -4,4 +4,4 @@ DATA_DIR = "data"
 # Folder where repo will be cloned
 REPO_DIR = os.path.join(DATA_DIR, "repo")
 # Vector DB collection name
-COLLECTION_NAME = "code_chunks"
+COLLECTION_NAME = "code_chunk"

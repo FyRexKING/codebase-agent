@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 from dotenv import load_dotenv
 from llm.ingest import clone_repo, load_python_files, chunk_files
-from llm.rag import index_chunks, search, collection_name_for_repo
+from llm.rag import index_chunks, search, collection_name_for_repo, reset_collection
 
 # Create API app
 app = FastAPI(title="Codebase RAG Agent", description="Semantic search over codebases using RAG")
@@ -50,7 +50,9 @@ def ingest(repo_url: str):
         # Convert into chunks
         chunks = chunk_files(files, repo_url=repo_url)
         # Index into vector DB
-        index_chunks(chunks, collection_name=collection_name_for_repo(repo_url))
+        collection_name = collection_name_for_repo(repo_url)
+        reset_collection(collection_name)
+        index_chunks(chunks, collection_name=collection_name)
         return {
             "status": "success",
             "message": "Repository indexed successfully",

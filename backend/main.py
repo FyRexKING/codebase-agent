@@ -2,11 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
+from dotenv import load_dotenv
 from llm.ingest import clone_repo, load_python_files, chunk_files
-from llm.rag import index_chunks, search
+from llm.rag import index_chunks, search, collection_name_for_repo
 
 # Create API app
 app = FastAPI(title="Codebase RAG Agent", description="Semantic search over codebases using RAG")
+
+load_dotenv()
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -47,7 +50,7 @@ def ingest(repo_url: str):
         # Convert into chunks
         chunks = chunk_files(files, repo_url=repo_url)
         # Index into vector DB
-        index_chunks(chunks)
+        index_chunks(chunks, collection_name=collection_name_for_repo(repo_url))
         return {
             "status": "success",
             "message": "Repository indexed successfully",
@@ -61,7 +64,7 @@ def ingest(repo_url: str):
 
 # Endpoint to query codebase
 @app.get("/ask")
-def ask(query: str):
+def ask(query: str, repo_url: str):
     """Query the indexed codebase"""
     if not query or query.strip() == "":
         return {
@@ -69,7 +72,7 @@ def ask(query: str):
             "message": "Query cannot be empty"
         }
     try:
-        results = search(query)
+        results = search(query, collection_name=collection_name_for_repo(repo_url))
         return {
             "status": "success",
             "results": results

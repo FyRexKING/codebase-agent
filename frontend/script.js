@@ -72,6 +72,7 @@ async function handleIngest() {
 // Handle Query
 async function handleQuery() {
     const query = queryInput.value.trim();
+    const url = repoUrl.value.trim();
 
     if (!query) {
         showStatus(queryStatus, 'Please enter a question', 'error');
@@ -87,7 +88,7 @@ async function handleQuery() {
     askBtn.disabled = true;
 
     try {
-        const response = await fetch(`${API_URL}/ask?query=${encodeURIComponent(query)}`);
+        const response = await fetch(`${API_URL}/ask?repo_url=${encodeURIComponent(url)}&query=${encodeURIComponent(query)}`);
         const data = await response.json();
 
         if (data.status === 'success') {

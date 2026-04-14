@@ -1,10 +1,11 @@
 import uuid
 import os
 import re
+import hashlib
 from collections import Counter
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct
-from llm.config import COLLECTION_NAME
+from llm.config import COLLECTION_NAME, QDRANT_HOST, QDRANT_PORT
 import google.genai as genai
 from rank_bm25 import BM25Okapi
 
@@ -18,6 +19,19 @@ GRAPH_SEED_K = 6
 
 _gemini_client = None
 _qdrant_client = None
+
+VECTOR_SIZE = 3072
+
+
+def collection_name_for_repo(repo_url: str) -> str:
+    """
+    Derive a stable, Qdrant-safe collection name from a repo URL.
+
+    We keep it short and avoid special characters to be safe across Qdrant versions.
+    """
+    normalized = (repo_url or "").strip().lower()
+    digest = hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:12]
+    return f"repo_{digest}"
 
 
 def _get_gemini_client() -> genai.Client:
@@ -40,17 +54,16 @@ def _get_qdrant_client() -> QdrantClient:
     if _qdrant_client is not None:
         return _qdrant_client
 
-    # TODO: externalize host/port via config (Project.md: config-driven).
-    _qdrant_client = QdrantClient(host="localhost", port=6333)
+    _qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
     return _qdrant_client
 
-def _ensure_collection_exists():
+def _ensure_collection_exists(collection_name: str):
     qdrant = _get_qdrant_client()
     existing_collections = [c.name for c in qdrant.get_collections().collections]
-    if COLLECTION_NAME not in existing_collections:
+    if collection_name not in existing_collections:
         qdrant.create_collection(
-            collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
+            collection_name=collection_name,
+            vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
         )
 
  # Note: do not connect to Qdrant at import time.
@@ -180,12 +193,13 @@ def batch_embed(texts, batch_size=10):
     
     return vectors
 
-def index_chunks(chunks):
+def index_chunks(chunks, *, collection_name: str | None = None):
     """Index code chunks into Qdrant vector database"""
     if not chunks:
         return
 
-    _ensure_collection_exists()
+    resolved_collection = collection_name or COLLECTION_NAME
+    _ensure_collection_exists(resolved_collection)
     qdrant = _get_qdrant_client()
     
     max_len = 800
@@ -218,7 +232,7 @@ def index_chunks(chunks):
         )
     
     qdrant.upsert(
-        collection_name=COLLECTION_NAME,
+        collection_name=resolved_collection,
         points=points,
     )
 
@@ -252,15 +266,16 @@ Question:
     except Exception as e:
         return f"LLM Error: {str(e)}"
 
-def search(query):
+def search(query, *, collection_name: str | None = None):
     """Search using hybrid retrieval (semantic + BM25 + graph proximity)."""
     try:
-        _ensure_collection_exists()
+        resolved_collection = collection_name or COLLECTION_NAME
+        _ensure_collection_exists(resolved_collection)
         qdrant = _get_qdrant_client()
 
         vector = embed(query)
         results = qdrant.search(
-            collection_name=COLLECTION_NAME,
+            collection_name=resolved_collection,
             query_vector=vector,
             limit=SEMANTIC_CANDIDATE_K,
         )

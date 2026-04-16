@@ -59,7 +59,8 @@ async function handleIngest() {
                 </div>
             `;
         } else {
-            throw new Error(data.message || 'Failed to load repository');
+            const hint = data.hint ? `\n\nHint: ${data.hint}` : '';
+            throw new Error((data.message || 'Failed to load repository') + hint);
         }
     } catch (error) {
         showStatus(ingestStatus, `Error: ${error.message}`, 'error');
@@ -95,7 +96,8 @@ async function handleQuery() {
             showStatus(queryStatus, '✓ Search complete', 'success');
             displayResults(query, data.results);
         } else {
-            throw new Error(data.message || 'Query failed');
+            const hint = data.hint ? `\n\nHint: ${data.hint}` : '';
+            throw new Error((data.message || 'Query failed') + hint);
         }
     } catch (error) {
         showStatus(queryStatus, `Error: ${error.message}`, 'error');

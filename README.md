@@ -1,89 +1,85 @@
 # Codebase RAG Agent
 
-A semantic search system for codebases using Retrieval-Augmented Generation (RAG).
+Codebase RAG Agent is a lightweight **repository question-answering** service built around Retrieval-Augmented Generation (RAG). It clones a GitHub repository, chunks Python code by AST symbols, embeds the chunks, stores them in Qdrant, and answers questions using Gemini with grounded citations.
 
-## 📁 Project Structure
+## What it supports
 
-```
-codebase-agent/
-├── backend/              # FastAPI backend layer
-│   ├── __init__.py      
-│   └── main.py          # FastAPI endpoints + static file serving
-├── llm/                 # LLM & RAG layer
-│   ├── __init__.py      
-│   ├── config.py        # Configuration
-│   ├── ingest.py        # Git cloning + file loading + chunking
-│   └── rag.py           # Vector DB + Gemini integration
-├── frontend/            # Frontend UI (no backend needed)
-│   ├── index.html       # Main page
-│   ├── style.css        # Styling
-│   └── script.js        # JavaScript logic
-├── data/                # Data storage
-│   └── repo/            # Cloned repositories
-└── requirements.txt     # Python dependencies
-```
+- **Python-only indexing** (current scope)
+- **AST-aware chunking** (module/class/function/method) with line ranges and symbol metadata
+- **Vector search** (Qdrant) with **hybrid re-ranking** (semantic + BM25 + lightweight import/dependency proximity)
+- **Incremental indexing** on re-ingest using `git diff` (only changed files are re-embedded)
+- **Deterministic chunk IDs** so re-indexing performs stable upserts
+- **Grounded answers**: responses are instructed to cite sources and refuse when evidence is insufficient
+- **User-friendly errors** for common failures (Gemini 429 quota, GitHub repo not found/private)
 
-## ⚙️ Setup
+## Architecture (high level)
 
-### 1. Install Dependencies
+- **Ingest**: clone → load `.py` files → AST chunking → Gemini embeddings → Qdrant upsert
+- **Query**: embed query → Qdrant semantic candidates → hybrid re-rank → Gemini answer from curated sources
+
+## Quickstart
+
+See `SETUP.md` for a complete, reproducible setup.
+
+At minimum:
+
+1. Start Qdrant (Docker) and keep it running.
+2. Create `.env` with `GEMINI_API_KEY=...`.
+3. Run the backend:
+
 ```bash
-pip install -r requirements.txt
+uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-### 2. Start Qdrant Vector DB (Docker)
-```bash
-docker run -p 6333:6333 qdrant/qdrant
-```
+4. Open the UI:
+- `http://127.0.0.1:8000/static/index.html`
 
-### 3. Set Environment Variables
-Create a `.env` file:
-```
-GEMINI_API_KEY=your_gemini_api_key_here
-```
+## API
 
-### 4. Run the Backend
-```bash
-cd /home/beluga/codebase-agent
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-```
+- `POST /ingest?repo_url=<url>`
+  - Performs **incremental indexing** if the repo was indexed before.
+- `POST /ingest?repo_url=<url>&force_full=true`
+  - Forces a **full rebuild** (drops the repo collection and re-indexes everything).
+- `GET /ask?repo_url=<url>&query=<question>`
+  - Answers a question using retrieved sources from that repo’s collection.
 
-## 🚀 Usage
+Ingestion responses include:
+- `mode`: `initial_full` | `incremental` | `full`
+- `chunks_indexed`
+- `head_commit`, `base_commit`
+- `changed_files`, `deleted_files`
 
-1. Open your browser: `http://localhost:8000/static/index.html`
-2. Enter a GitHub repository URL (e.g., `https://github.com/tiangolo/fastapi`)
-3. Click "Load Repo" to index the codebase
-4. Ask questions about the code
-5. View AI-generated answers with source code references
+## Index state (incremental indexing)
 
-## 📚 API Endpoints
+The backend stores per-repo index state at:
+- `data/index_state.json`
 
-- `POST /ingest?repo_url=<url>` - Ingest and index a GitHub repository
-- `GET /ask?query=<query>` - Query the indexed codebase
-- `GET /` - API documentation
+This is used to compute diffs between the last indexed commit and the current HEAD on re-ingest.
 
-## 🔧 Architecture
+## Configuration
 
-### Backend Flow
-1. **Ingest**: Clone repo → Load Python files → Chunk by Python AST symbols (module / class / function) → Embed with Gemini (`gemini-embedding-001`) → Store in Qdrant
-2. **Search**: Embed query → Retrieve semantic candidates from Qdrant → Hybrid rank (semantic + BM25 + lightweight dependency/import proximity) → Send selected snippets to Gemini (`gemini-2.5-flash`) to generate the final answer
+Environment variables (via `.env`):
+- `GEMINI_API_KEY` (required)
+- `QDRANT_HOST` (default `localhost`)
+- `QDRANT_PORT` (default `6333`)
+- `DATA_DIR` (default `data`)
 
-### Frontend
-- Simple HTML/CSS/JS (no frameworks)
-- Clean UI with two main steps: Load Repo + Ask Questions
-- Real-time status messages and results display
+## Limitations
 
-## ⚠️ Current Limitations
+- Indexer currently processes **only Python** (`.py`) files.
+- Repository workspace is currently **single-directory** (`data/repo`), so concurrent ingests are not supported.
+- Gemini quota limits may require using smaller repos and/or fewer chunks (errors are surfaced with actionable hints).
 
-- Only indexes Python files
-- Qdrant point IDs are currently random UUIDs on every ingest, so re-ingesting will append duplicates unless you manually clear Qdrant
-- Single working directory (`data/repo`) (no concurrent/multi-workspace ingest story yet)
-- Qdrant host/port and `DATA_DIR` are documented in `.env.example` but currently hard-coded in `llm/config.py` and `llm/rag.py`
-- Retrieved context sent to the LLM is snippet-only (not full structured citations/locations), which can reduce answer grounding
+## Troubleshooting
 
-## 🎯 Next Steps
+- **Gemini 429 / quota exceeded**
+  - Use smaller repos, retry after a short wait, or reduce repeated ingests.
+- **GitHub repo not found / auth failed**
+  - This demo clones anonymously; private repos will fail unless you add authentication to the clone step.
 
-Planned improvements (high-signal):
+## Project layout
 
-- Deterministic `chunk_id` (stable IDs) so re-ingest becomes true upsert (update changed code, delete removed code)
-- SQL metadata store (e.g. Postgres) for chunk metadata + dependency edges, enabling incremental re-index from `git diff` / file hashes
-- Stronger grounding in `/ask`: better context formatting, explicit citations, and refusal when evidence is insufficient
+- `backend/`: FastAPI service and static file serving
+- `llm/`: ingestion, chunking, embeddings, retrieval, ranking, and answer generation
+- `frontend/`: simple HTML/CSS/JS UI
+- `data/`: local working directory and index state

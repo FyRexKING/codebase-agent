@@ -3,7 +3,14 @@ import uuid
 from typing import Any, Dict, Iterable, List, Optional
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointStruct,
+    VectorParams,
+)
 
 from llm.config import QDRANT_HOST, QDRANT_PORT
 from llm.gemini_embedder import VECTOR_SIZE
@@ -62,6 +69,33 @@ def reset_collection(collection_name: str) -> None:
 def upsert_points(collection_name: str, points: Iterable[PointStruct]) -> None:
     qdrant = get_qdrant_client()
     qdrant.upsert(collection_name=collection_name, points=list(points))
+
+def delete_points_for_paths(
+    collection_name: str, *, repo_url: str, absolute_paths: List[str]
+) -> None:
+    """
+    Delete all points whose payload matches any of the given absolute file paths.
+
+    Notes:
+    - Payload `path` in this project stores absolute paths (within the cloned repo dir).
+    - We also filter by repo_url for safety even though collections are per-repo.
+    """
+    if not absolute_paths:
+        return
+
+    qdrant = get_qdrant_client()
+    normalized_repo = (repo_url or "").strip().lower()
+
+    for p in absolute_paths:
+        if not p:
+            continue
+        flt = Filter(
+            must=[
+                FieldCondition(key="repo_url", match=MatchValue(value=normalized_repo)),
+                FieldCondition(key="path", match=MatchValue(value=p)),
+            ]
+        )
+        qdrant.delete(collection_name=collection_name, points_selector=flt)
 
 
 def search_points(

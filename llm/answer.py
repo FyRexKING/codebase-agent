@@ -3,6 +3,7 @@ import time
 from typing import Any, Dict, List, Tuple
 
 from llm.gemini_embedder import get_gemini_client
+from llm.errors import CodebaseAgentError, is_gemini_auth_error, is_gemini_quota_error
 
 
 DEFAULT_ANSWER_MODEL = "gemini-2.5-flash"
@@ -102,6 +103,20 @@ Answer (with citations):"""
         except Exception as e:
             last_err = e
             msg = str(e)
+            if is_gemini_quota_error(msg):
+                raise CodebaseAgentError(
+                    code="GEMINI_429_QUOTA",
+                    user_message="Gemini quota/rate limit hit while generating the answer (429).",
+                    hint="Wait 30–60 seconds and retry. If this keeps happening, ask shorter questions or reduce load, or upgrade quota.",
+                    detail=msg,
+                )
+            if is_gemini_auth_error(msg):
+                raise CodebaseAgentError(
+                    code="GEMINI_AUTH_FAILED",
+                    user_message="Gemini authentication failed while generating the answer.",
+                    hint="Check that `GEMINI_API_KEY` is valid and the backend was restarted after updating `.env`.",
+                    detail=msg,
+                )
             if "503" not in msg and "UNAVAILABLE" not in msg:
                 raise
             if attempt < 3:
@@ -129,15 +144,12 @@ Given:
 Task:
 - If ANY sentence in the answer is not directly supported by the sources, output exactly: FAIL
 - Otherwise output exactly: PASS
-
 Sources:
 {context}
-
 Answer:
 {answer}
 """
     client = get_gemini_client()
-
     last_err: Exception | None = None
     for attempt in range(4):
         try:
@@ -147,20 +159,30 @@ Answer:
         except Exception as e:
             last_err = e
             msg = str(e)
+            if is_gemini_quota_error(msg):
+                raise CodebaseAgentError(
+                    code="GEMINI_429_QUOTA",
+                    user_message="Gemini quota/rate limit hit while verifying the answer (429).",
+                    hint="Disable verification (`VERIFY_ANSWER=0`) or wait and retry.",
+                    detail=msg,
+                )
+            if is_gemini_auth_error(msg):
+                raise CodebaseAgentError(
+                    code="GEMINI_AUTH_FAILED",
+                    user_message="Gemini authentication failed while verifying the answer.",
+                    hint="Check that `GEMINI_API_KEY` is valid and the backend was restarted after updating `.env`.",
+                    detail=msg,
+                )
             if "503" not in msg and "UNAVAILABLE" not in msg:
                 raise
             if attempt < 3:
                 time.sleep(1.0 * (2**attempt))
-
     fallback_model = os.environ.get("VERIFY_MODEL_FALLBACK", "").strip() or DEFAULT_FALLBACK_VERIFY_MODEL
     if fallback_model and fallback_model != model:
         response = client.models.generate_content(model=fallback_model, contents=prompt)
         verdict = (response.text or "").strip().upper()
         return verdict == "PASS"
-
     raise last_err or RuntimeError("Verifier call failed")
-
-
 def explain(query: str, chunks: List[Dict[str, Any]], *, model: str = DEFAULT_ANSWER_MODEL) -> str:
     if not chunks:
         return "No relevant context found in codebase."
@@ -173,8 +195,11 @@ def explain(query: str, chunks: List[Dict[str, Any]], *, model: str = DEFAULT_AN
             ok = _verify_answer(answer, context=context, model=DEFAULT_VERIFY_MODEL)
             if not ok:
                 return "Not found in codebase."
-
         return answer
     except Exception as e:
+        # Keep raw errors out of the "explanation" channel when possible;
+        # the API layer can catch CodebaseAgentError and render a friendly message.
+        if isinstance(e, CodebaseAgentError):
+            raise
         return f"LLM Error: {str(e)}"
 

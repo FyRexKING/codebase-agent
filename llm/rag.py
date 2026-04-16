@@ -8,6 +8,7 @@ from llm.gemini_embedder import embed_documents, embed_query
 from llm.hybrid_rank import hybrid_rerank
 from llm.qdrant_store import (
     collection_name_for_repo,
+    delete_points_for_paths,
     ensure_collection_exists,
     point_id_for_chunk,
     reset_collection,
@@ -76,6 +77,30 @@ def index_chunks(chunks, *, collection_name: str | None = None):
         )
     
     upsert_points(resolved_collection, points)
+
+def incremental_index_chunks(
+    *,
+    repo_url: str,
+    collection_name: str,
+    chunks,
+    changed_or_added_paths: List[str],
+    deleted_paths: List[str],
+) -> None:
+    """
+    Apply an incremental update:
+    - Delete points for changed/deleted files (stale chunks)
+    - Upsert new chunks for changed/added files
+
+    Assumption: `chunks` contains chunks only for changed/added files.
+    """
+    ensure_collection_exists(collection_name)
+
+    # Delete stale points for any affected paths (changed + deleted).
+    affected = sorted(set((changed_or_added_paths or []) + (deleted_paths or [])))
+    delete_points_for_paths(collection_name, repo_url=repo_url, absolute_paths=affected)
+
+    # Upsert new points for changed/added.
+    index_chunks(chunks, collection_name=collection_name)
 
 def search(query, *, collection_name: str | None = None):
     """Search using hybrid retrieval (semantic + BM25 + graph proximity)."""
